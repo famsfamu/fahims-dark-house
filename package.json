@@ -1,0 +1,24 @@
+{
+  "name": "fahims-dark-house",
+  "version": "2.0.0",
+  "private": true,
+  "description": "FAHIM'S DARK HOUSE - bilingual personal brand, content and online business website with admin panel.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "connect-sqlite3": "^0.9.17",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "nodemailer": "^7.0.9",
+    "sqlite3": "^5.1.7",
+    "multer": "^2.0.2"
+  }
+}
