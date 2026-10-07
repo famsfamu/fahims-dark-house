@@ -267,6 +267,13 @@ app.post('/api/orders', async (req, res) => {
   });
 });
 
+
+/* =========================================================
+   ADMIN LOGIN
+   Diagnostic logging added.
+   Password itself is NEVER logged.
+   ========================================================= */
+
 app.post('/api/admin/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -275,21 +282,48 @@ app.post('/api/admin/login', async (req, res) => {
     [email || '']
   );
 
-  if (
-    !a ||
-    !(await bcrypt.compare(password || '', a.password_hash))
-  ) {
-    return res.status(401).json({ error: 'Invalid login' });
+  console.log(
+    `ADMIN LOGIN CHECK — email=${email || '(empty)'} — found=${!!a}`
+  );
+
+  if (!a) {
+    console.log('ADMIN LOGIN RESULT — admin not found');
+
+    return res.status(401).json({
+      error: 'Invalid login'
+    });
+  }
+
+  const passwordMatch = await bcrypt.compare(
+    password || '',
+    a.password_hash
+  );
+
+  console.log(
+    `ADMIN PASSWORD CHECK — admin_id=${a.id} — match=${passwordMatch}`
+  );
+
+  if (!passwordMatch) {
+    console.log('ADMIN LOGIN RESULT — password mismatch');
+
+    return res.status(401).json({
+      error: 'Invalid login'
+    });
   }
 
   req.session.adminId = a.id;
   req.session.adminEmail = a.email;
+
+  console.log(
+    `ADMIN LOGIN SUCCESS — admin_id=${a.id}`
+  );
 
   res.json({
     ok: true,
     email: a.email
   });
 });
+
 
 app.post('/api/admin/logout', (req, res) =>
   req.session.destroy(() => res.json({ ok: true }))
@@ -330,10 +364,10 @@ app.post('/api/admin/change-password', auth, async (req, res) => {
   res.json({ ok: true });
 });
 
-/*
-  ADMIN PASSWORD RESET
-  Uses the live Render website instead of localhost.
-*/
+
+/* =========================================================
+   ADMIN PASSWORD RESET
+   ========================================================= */
 
 app.post('/api/admin/forgot-password', async (req, res) => {
   const { email } = req.body;
@@ -374,10 +408,6 @@ app.post('/api/admin/forgot-password', async (req, res) => {
       ]
     );
 
-    /*
-      FIXED:
-      Always generate the reset link using the live website.
-    */
     const link =
       `https://fahims-dark-house.onrender.com/admin/reset.html?token=${token}`;
 
@@ -414,6 +444,13 @@ app.post('/api/admin/forgot-password', async (req, res) => {
   });
 });
 
+
+/* =========================================================
+   ADMIN RESET PASSWORD
+   Diagnostic logging added.
+   Password/token/hash are NEVER logged.
+   ========================================================= */
+
 app.post('/api/admin/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
 
@@ -422,6 +459,10 @@ app.post('/api/admin/reset-password', async (req, res) => {
     !newPassword ||
     newPassword.length < 10
   ) {
+    console.log(
+      'ADMIN PASSWORD RESET RESULT — invalid request'
+    );
+
     return res.status(400).json({
       error: 'Invalid request'
     });
@@ -438,14 +479,27 @@ app.post('/api/admin/reset-password', async (req, res) => {
   );
 
   if (!r) {
+    console.log(
+      'ADMIN PASSWORD RESET RESULT — token invalid or expired'
+    );
+
     return res.status(400).json({
       error: 'Reset link is invalid or expired.'
     });
   }
 
-  await run(
+  const newPasswordHash = await bcrypt.hash(
+    newPassword,
+    12
+  );
+
+  const updateResult = await run(
     'UPDATE admins SET password_hash=? WHERE id=?',
-    [await bcrypt.hash(newPassword, 12), r.admin_id]
+    [newPasswordHash, r.admin_id]
+  );
+
+  console.log(
+    `ADMIN PASSWORD RESET UPDATE — admin_id=${r.admin_id} — rows_changed=${updateResult.changes}`
   );
 
   await run(
@@ -453,8 +507,13 @@ app.post('/api/admin/reset-password', async (req, res) => {
     [r.id]
   );
 
+  console.log(
+    `ADMIN PASSWORD RESET SUCCESS — admin_id=${r.admin_id}`
+  );
+
   res.json({ ok: true });
 });
+
 
 app.post(
   '/api/admin/upload',
